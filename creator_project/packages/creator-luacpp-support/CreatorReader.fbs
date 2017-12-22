@@ -103,6 +103,7 @@ table Node
     anim:AnimationRef;
     colliders:[Collider];
     groupIndex:int;
+    rigidBodyProp:RigidBodyProp;
 }
 
 //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
@@ -528,6 +529,26 @@ table AnimPropSkewY
     value:float;
     curveType:string;
     curveData:[float];
+}
+
+//=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+// Physics
+//=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+enum RigidBodyType:byte {Static, Kinematic, Dynamic, Animated}
+
+table RigidBodyProp
+{
+    type:RigidBodyType;
+    enableContractListener:bool;
+    bullet:bool;
+    allowSleep:bool;
+    gravityScale:float;
+    linearDumping:float;
+    angularDumping:float;
+    linearVelocity:Vec2;
+    angularVelocity:float;
+    fixedRotation:bool;
 }
 
 

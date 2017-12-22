@@ -194,6 +194,7 @@ class Node {
 
         this.parse_clip();
         this.parse_colliders();
+        this.parse_physics();
     }
 
     parse_child(node_idx) {
@@ -356,6 +357,28 @@ class Node {
                 anim.defaultClip = state._clips[component._defaultClip.__uuid__].name;
 
             this._properties.anim = anim;
+        }
+    }
+
+    parse_physics() {
+        let rigid_body = Node.get_node_component_of_type(this._node_data, 'cc.RigidBody');
+        if (rigid_body) {
+            const rigid_body_type = ['Static', 'Kinematic', 'Dynamic', 'Animated'];
+            let rigid_body_prop = {
+                type: rigid_body_type[rigid_body._type],
+                enableContractListener: rigid_body.enabledContactListener,
+                bullet: rigid_body.bullet,
+                allowSleep: rigid_body._allowSleep,
+                gravityScale: rigid_body._gravityScale,
+                linearDumping: rigid_body._linearDamping,
+                angularDumping: rigid_body._angularDumping,
+                linearVelocity: rigid_body._linearVelocity,
+                angularVelocity: rigid_body._angularVelocity,
+                fixedRotation: rigid_body._fixedRotation
+                // bug? awake is not in .fire file
+            }
+
+            this._properties.rigidBody = rigid_body_prop;
         }
     }
 

@@ -106,6 +106,8 @@ struct AnimPropSkewX;
 
 struct AnimPropSkewY;
 
+struct RigidBodyProp;
+
 struct Vec2;
 
 struct Vec3;
@@ -460,6 +462,22 @@ inline const char **EnumNamesAnimWrapMode() {
 }
 
 inline const char *EnumNameAnimWrapMode(AnimWrapMode e) { return EnumNamesAnimWrapMode()[static_cast<int>(e)]; }
+
+enum RigidBodyType {
+  RigidBodyType_Static = 0,
+  RigidBodyType_Kinematic = 1,
+  RigidBodyType_Dynamic = 2,
+  RigidBodyType_Animated = 3,
+  RigidBodyType_MIN = RigidBodyType_Static,
+  RigidBodyType_MAX = RigidBodyType_Animated
+};
+
+inline const char **EnumNamesRigidBodyType() {
+  static const char *names[] = { "Static", "Kinematic", "Dynamic", "Animated", nullptr };
+  return names;
+}
+
+inline const char *EnumNameRigidBodyType(RigidBodyType e) { return EnumNamesRigidBodyType()[static_cast<int>(e)]; }
 
 MANUALLY_ALIGNED_STRUCT(4) Vec2 FLATBUFFERS_FINAL_CLASS {
  private:
@@ -882,7 +900,8 @@ struct Node FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_TAG = 38,
     VT_ANIM = 40,
     VT_COLLIDERS = 42,
-    VT_GROUPINDEX = 44
+    VT_GROUPINDEX = 44,
+    VT_RIGIDBODYPROP = 46
   };
   const Size *contentSize() const { return GetStruct<const Size *>(VT_CONTENTSIZE); }
   bool enabled() const { return GetField<uint8_t>(VT_ENABLED, 1) != 0; }
@@ -905,6 +924,7 @@ struct Node FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const AnimationRef *anim() const { return GetPointer<const AnimationRef *>(VT_ANIM); }
   const flatbuffers::Vector<flatbuffers::Offset<Collider>> *colliders() const { return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<Collider>> *>(VT_COLLIDERS); }
   int32_t groupIndex() const { return GetField<int32_t>(VT_GROUPINDEX, 0); }
+  const RigidBodyProp *rigidBodyProp() const { return GetPointer<const RigidBodyProp *>(VT_RIGIDBODYPROP); }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<Size>(verifier, VT_CONTENTSIZE) &&
@@ -932,6 +952,8 @@ struct Node FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            verifier.Verify(colliders()) &&
            verifier.VerifyVectorOfTables(colliders()) &&
            VerifyField<int32_t>(verifier, VT_GROUPINDEX) &&
+           VerifyField<flatbuffers::uoffset_t>(verifier, VT_RIGIDBODYPROP) &&
+           verifier.VerifyTable(rigidBodyProp()) &&
            verifier.EndTable();
   }
 };
@@ -960,10 +982,11 @@ struct NodeBuilder {
   void add_anim(flatbuffers::Offset<AnimationRef> anim) { fbb_.AddOffset(Node::VT_ANIM, anim); }
   void add_colliders(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<Collider>>> colliders) { fbb_.AddOffset(Node::VT_COLLIDERS, colliders); }
   void add_groupIndex(int32_t groupIndex) { fbb_.AddElement<int32_t>(Node::VT_GROUPINDEX, groupIndex, 0); }
+  void add_rigidBodyProp(flatbuffers::Offset<RigidBodyProp> rigidBodyProp) { fbb_.AddOffset(Node::VT_RIGIDBODYPROP, rigidBodyProp); }
   NodeBuilder(flatbuffers::FlatBufferBuilder &_fbb) : fbb_(_fbb) { start_ = fbb_.StartTable(); }
   NodeBuilder &operator=(const NodeBuilder &);
   flatbuffers::Offset<Node> Finish() {
-    auto o = flatbuffers::Offset<Node>(fbb_.EndTable(start_, 21));
+    auto o = flatbuffers::Offset<Node>(fbb_.EndTable(start_, 22));
     return o;
   }
 };
@@ -989,8 +1012,10 @@ inline flatbuffers::Offset<Node> CreateNode(flatbuffers::FlatBufferBuilder &_fbb
     int32_t tag = 0,
     flatbuffers::Offset<AnimationRef> anim = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<Collider>>> colliders = 0,
-    int32_t groupIndex = 0) {
+    int32_t groupIndex = 0,
+    flatbuffers::Offset<RigidBodyProp> rigidBodyProp = 0) {
   NodeBuilder builder_(_fbb);
+  builder_.add_rigidBodyProp(rigidBodyProp);
   builder_.add_groupIndex(groupIndex);
   builder_.add_colliders(colliders);
   builder_.add_anim(anim);
@@ -1036,8 +1061,9 @@ inline flatbuffers::Offset<Node> CreateNodeDirect(flatbuffers::FlatBufferBuilder
     int32_t tag = 0,
     flatbuffers::Offset<AnimationRef> anim = 0,
     const std::vector<flatbuffers::Offset<Collider>> *colliders = nullptr,
-    int32_t groupIndex = 0) {
-  return CreateNode(_fbb, contentSize, enabled, name ? _fbb.CreateString(name) : 0, anchorPoint, cascadeOpacityEnabled, color, globalZOrder, localZOrder, opacity, opacityModifyRGB, position, rotationSkewX, rotationSkewY, scaleX, scaleY, skewX, skewY, tag, anim, colliders ? _fbb.CreateVector<flatbuffers::Offset<Collider>>(*colliders) : 0, groupIndex);
+    int32_t groupIndex = 0,
+    flatbuffers::Offset<RigidBodyProp> rigidBodyProp = 0) {
+  return CreateNode(_fbb, contentSize, enabled, name ? _fbb.CreateString(name) : 0, anchorPoint, cascadeOpacityEnabled, color, globalZOrder, localZOrder, opacity, opacityModifyRGB, position, rotationSkewX, rotationSkewY, scaleX, scaleY, skewX, skewY, tag, anim, colliders ? _fbb.CreateVector<flatbuffers::Offset<Collider>>(*colliders) : 0, groupIndex, rigidBodyProp);
 }
 
 struct Sprite FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
@@ -3974,6 +4000,97 @@ inline flatbuffers::Offset<AnimPropSkewY> CreateAnimPropSkewYDirect(flatbuffers:
     const char *curveType = nullptr,
     const std::vector<float> *curveData = nullptr) {
   return CreateAnimPropSkewY(_fbb, frame, value, curveType ? _fbb.CreateString(curveType) : 0, curveData ? _fbb.CreateVector<float>(*curveData) : 0);
+}
+
+struct RigidBodyProp FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  enum {
+    VT_TYPE = 4,
+    VT_ENABLECONTRACTLISTENER = 6,
+    VT_BULLET = 8,
+    VT_ALLOWSLEEP = 10,
+    VT_GRAVITYSCALE = 12,
+    VT_LINEARDUMPING = 14,
+    VT_ANGULARDUMPING = 16,
+    VT_LINEARVELOCITY = 18,
+    VT_ANGULARVELOCITY = 20,
+    VT_FIXEDROTATION = 22,
+    VT_AWAKE = 24
+  };
+  RigidBodyType type() const { return static_cast<RigidBodyType>(GetField<int8_t>(VT_TYPE, 0)); }
+  bool enableContractListener() const { return GetField<uint8_t>(VT_ENABLECONTRACTLISTENER, 0) != 0; }
+  bool bullet() const { return GetField<uint8_t>(VT_BULLET, 0) != 0; }
+  bool allowSleep() const { return GetField<uint8_t>(VT_ALLOWSLEEP, 0) != 0; }
+  float gravityScale() const { return GetField<float>(VT_GRAVITYSCALE, 0.0f); }
+  float linearDumping() const { return GetField<float>(VT_LINEARDUMPING, 0.0f); }
+  float angularDumping() const { return GetField<float>(VT_ANGULARDUMPING, 0.0f); }
+  const Vec2 *linearVelocity() const { return GetStruct<const Vec2 *>(VT_LINEARVELOCITY); }
+  float angularVelocity() const { return GetField<float>(VT_ANGULARVELOCITY, 0.0f); }
+  bool fixedRotation() const { return GetField<uint8_t>(VT_FIXEDROTATION, 0) != 0; }
+  bool awake() const { return GetField<uint8_t>(VT_AWAKE, 0) != 0; }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<int8_t>(verifier, VT_TYPE) &&
+           VerifyField<uint8_t>(verifier, VT_ENABLECONTRACTLISTENER) &&
+           VerifyField<uint8_t>(verifier, VT_BULLET) &&
+           VerifyField<uint8_t>(verifier, VT_ALLOWSLEEP) &&
+           VerifyField<float>(verifier, VT_GRAVITYSCALE) &&
+           VerifyField<float>(verifier, VT_LINEARDUMPING) &&
+           VerifyField<float>(verifier, VT_ANGULARDUMPING) &&
+           VerifyField<Vec2>(verifier, VT_LINEARVELOCITY) &&
+           VerifyField<float>(verifier, VT_ANGULARVELOCITY) &&
+           VerifyField<uint8_t>(verifier, VT_FIXEDROTATION) &&
+           VerifyField<uint8_t>(verifier, VT_AWAKE) &&
+           verifier.EndTable();
+  }
+};
+
+struct RigidBodyPropBuilder {
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_type(RigidBodyType type) { fbb_.AddElement<int8_t>(RigidBodyProp::VT_TYPE, static_cast<int8_t>(type), 0); }
+  void add_enableContractListener(bool enableContractListener) { fbb_.AddElement<uint8_t>(RigidBodyProp::VT_ENABLECONTRACTLISTENER, static_cast<uint8_t>(enableContractListener), 0); }
+  void add_bullet(bool bullet) { fbb_.AddElement<uint8_t>(RigidBodyProp::VT_BULLET, static_cast<uint8_t>(bullet), 0); }
+  void add_allowSleep(bool allowSleep) { fbb_.AddElement<uint8_t>(RigidBodyProp::VT_ALLOWSLEEP, static_cast<uint8_t>(allowSleep), 0); }
+  void add_gravityScale(float gravityScale) { fbb_.AddElement<float>(RigidBodyProp::VT_GRAVITYSCALE, gravityScale, 0.0f); }
+  void add_linearDumping(float linearDumping) { fbb_.AddElement<float>(RigidBodyProp::VT_LINEARDUMPING, linearDumping, 0.0f); }
+  void add_angularDumping(float angularDumping) { fbb_.AddElement<float>(RigidBodyProp::VT_ANGULARDUMPING, angularDumping, 0.0f); }
+  void add_linearVelocity(const Vec2 *linearVelocity) { fbb_.AddStruct(RigidBodyProp::VT_LINEARVELOCITY, linearVelocity); }
+  void add_angularVelocity(float angularVelocity) { fbb_.AddElement<float>(RigidBodyProp::VT_ANGULARVELOCITY, angularVelocity, 0.0f); }
+  void add_fixedRotation(bool fixedRotation) { fbb_.AddElement<uint8_t>(RigidBodyProp::VT_FIXEDROTATION, static_cast<uint8_t>(fixedRotation), 0); }
+  void add_awake(bool awake) { fbb_.AddElement<uint8_t>(RigidBodyProp::VT_AWAKE, static_cast<uint8_t>(awake), 0); }
+  RigidBodyPropBuilder(flatbuffers::FlatBufferBuilder &_fbb) : fbb_(_fbb) { start_ = fbb_.StartTable(); }
+  RigidBodyPropBuilder &operator=(const RigidBodyPropBuilder &);
+  flatbuffers::Offset<RigidBodyProp> Finish() {
+    auto o = flatbuffers::Offset<RigidBodyProp>(fbb_.EndTable(start_, 11));
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<RigidBodyProp> CreateRigidBodyProp(flatbuffers::FlatBufferBuilder &_fbb,
+    RigidBodyType type = RigidBodyType_Static,
+    bool enableContractListener = false,
+    bool bullet = false,
+    bool allowSleep = false,
+    float gravityScale = 0.0f,
+    float linearDumping = 0.0f,
+    float angularDumping = 0.0f,
+    const Vec2 *linearVelocity = 0,
+    float angularVelocity = 0.0f,
+    bool fixedRotation = false,
+    bool awake = false) {
+  RigidBodyPropBuilder builder_(_fbb);
+  builder_.add_angularVelocity(angularVelocity);
+  builder_.add_linearVelocity(linearVelocity);
+  builder_.add_angularDumping(angularDumping);
+  builder_.add_linearDumping(linearDumping);
+  builder_.add_gravityScale(gravityScale);
+  builder_.add_awake(awake);
+  builder_.add_fixedRotation(fixedRotation);
+  builder_.add_allowSleep(allowSleep);
+  builder_.add_bullet(bullet);
+  builder_.add_enableContractListener(enableContractListener);
+  builder_.add_type(type);
+  return builder_.Finish();
 }
 
 struct LabelOutline FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
